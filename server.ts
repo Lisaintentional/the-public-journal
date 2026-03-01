@@ -16,7 +16,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- 1. DASHBOARD ROUTE ---
+// --- 1. DASHBOARD ---
 app.get('/', async (req: Request, res: Response) => {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
@@ -39,20 +39,17 @@ app.get('/', async (req: Request, res: Response) => {
 
     const { data: entries } = await supabase.from('journal_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     
-    // Check if user has unlocked anything via the URL or session
-    const isPro = unlocked === 'lifetime' || req.query.success === 'true';
+    const checkLock = (name: string) => {
+        if (unlocked === 'lifetime') return '';
+        return unlocked === name ? '' : 'disabled';
+    };
 
     const listItems = entries?.map((e: any) => `
         <div style="background:#1e293b; padding:20px; border-radius:12px; border:1px solid #334155; margin-bottom:15px;">
-            <div style="color:#94a3b8; font-size:0.75rem;">${new Date(e.created_at).toLocaleString()}</div>
-            <div style="margin:10px 0; color:#f8fafc;">${e.text}</div>
-            ${e.summary ? `<div style="background:#0f172a; padding:12px; border-radius:8px; border-left:4px solid #3b82f6; color:#38bdf8;"><strong>AI:</strong> ${e.summary}</div>` : ''}
+            <div style="color:#94a3b8; font-size:0.75rem;">` + new Date(e.created_at).toLocaleString() + `</div>
+            <div style="margin:10px 0; color:#f8fafc;">` + e.text + `</div>
+            ` + (e.summary ? `<div style="background:#0f172a; padding:12px; border-radius:8px; border-left:4px solid #3b82f6; color:#38bdf8;"><strong>AI:</strong> ` + e.summary + `</div>` : '') + `
         </div>`).join('') || '<p style="text-align:center; color:#64748b;">Your vault is empty.</p>';
-
-    const checkLock = (name: string) => {
-        if (unlocked === 'lifetime' || isPro) return '';
-        return unlocked === name ? '' : 'disabled';
-    };
 
     res.send(`
         <!DOCTYPE html>
@@ -60,31 +57,32 @@ app.get('/', async (req: Request, res: Response) => {
         <body style="font-family:sans-serif; background:#0f172a; color:#f8fafc; padding:20px; margin:0;">
             <div style="max-width:600px; margin:0 auto; padding-top:20px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:30px;">
-                    <small style="color:#94a3b8;">${user.email}</small>
+                    <small style="color:#94a3b8;">` + user.email + `</small>
                     <a href="/logout" style="color:#ef4444; text-decoration:none; font-size:0.8rem;">Logout</a>
                 </div>
 
-                <div class="card" style="background:#1e293b; padding:25px; border-radius:15px; border:1px solid #334155; margin-bottom:30px;">
+                <div style="border:1px solid #10b981; padding:20px; border-radius:15px; margin-bottom:30px; background:rgba(16,185,129,0.05);">
+                    <h4 style="margin:0 0 10px 0; color:#10b981;">🛒 Persona Shop</h4>
+                    <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                        <button onclick="buy('tough-love')" style="padding:8px; background:#1e293b; border:1px solid #334155; color:white; border-radius:5px; cursor:pointer;">🥊 Tough Love ($9.99)</button>
+                        <button onclick="buy('shadow')" style="padding:8px; background:#1e293b; border:1px solid #334155; color:white; border-radius:5px; cursor:pointer;">🌑 Shadow ($14.99)</button>
+                        <button onclick="buy('lifetime')" style="padding:8px; background:#10b981; border:none; color:white; border-radius:5px; cursor:pointer;">🌟 All Access ($49.99)</button>
+                    </div>
+                </div>
+
+                <div style="background:#1e293b; padding:25px; border-radius:15px; border:1px solid #334155; margin-bottom:30px;">
                     <form action="/add-entry" method="POST">
-                        <input type="hidden" name="unlockedStatus" value="${unlocked}">
-                        <textarea name="text" placeholder="What's on your mind?" required style="width:100%; height:100px; padding:12px; border-radius:8px; background:#0f172a; color:white; border:1px solid #334155; box-sizing:border-box;"></textarea>
+                        <input type="hidden" name="unlockedStatus" value="` + unlocked + `">
+                        <textarea name="text" placeholder="Journal entry..." required style="width:100%; height:100px; padding:12px; border-radius:8px; background:#0f172a; color:white; border:1px solid #334155; box-sizing:border-box;"></textarea>
                         <select name="persona" style="width:100%; padding:12px; border-radius:8px; background:#0f172a; color:white; border:1px solid #334155; margin:15px 0;">
                             <option value="stoic">🏛️ Stoic (Free)</option>
-                            <option value="tough-love" ${checkLock('tough-love')}>🥊 Tough Love ${checkLock('tough-love') ? '🔒' : ''}</option>
-                            <option value="zen" ${checkLock('zen')}>🧘 Zen ${checkLock('zen') ? '🔒' : ''}</option>
-                            <option value="shadow" ${checkLock('shadow')}>🌑 Shadow ${checkLock('shadow') ? '🔒' : ''}</option>
+                            <option value="tough-love" ` + checkLock('tough-love') + `>🥊 Tough Love ` + (checkLock('tough-love') ? '🔒' : '') + `</option>
+                            <option value="shadow" ` + checkLock('shadow') + `>🌑 Shadow Worker ` + (checkLock('shadow') ? '🔒' : '') + `</option>
                         </select>
                         <button type="submit" style="width:100%; padding:14px; background:#3b82f6; border:none; color:white; border-radius:8px; cursor:pointer; font-weight:bold;">Secure Entry</button>
                     </form>
                 </div>
-
-                <div style="border:1px solid #10b981; padding:20px; border-radius:15px; margin-bottom:30px; background:rgba(16,185,129,0.05);">
-                    <h4 style="margin:0 0 10px 0; color:#10b981;">Marketplace</h4>
-                    <button onclick="buy('shadow')" style="margin-right:10px; padding:8px; background:#1e293b; border:1px solid #334155; color:white; border-radius:5px; cursor:pointer;">🌑 Shadow ($14.99)</button>
-                    <button onclick="buy('lifetime')" style="padding:8px; background:#10b981; border:none; color:white; border-radius:5px; cursor:pointer;">🌟 All ($49.99)</button>
-                </div>
-
-                <div id="list">${listItems}</div>
+                <div id="list">` + listItems + `</div>
             </div>
             <script>
                 async function buy(persona) {
@@ -102,11 +100,11 @@ app.get('/', async (req: Request, res: Response) => {
     `);
 });
 
-// --- 2. AUTH ROUTES ---
+// --- 2. AUTH ---
 app.post('/login', async (req, res) => {
     const { email } = req.body;
     await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: 'https://' + req.get('host') } });
-    res.send("<body style='background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding-top:100px;'><h2>Check email!</h2></body>");
+    res.send("<body style='background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding-top:100px;'><h2>Check your email! ✉️</h2></body>");
 });
 
 app.get('/logout', async (req, res) => {
@@ -114,7 +112,7 @@ app.get('/logout', async (req, res) => {
     res.redirect('/');
 });
 
-// --- 3. JOURNAL ROUTE ---
+// --- 3. JOURNAL ---
 app.post('/add-entry', async (req, res) => {
     const { data: { session } } = await supabase.auth.getSession();
     const { text, persona, unlockedStatus } = req.body;
@@ -124,6 +122,7 @@ app.post('/add-entry', async (req, res) => {
     let prompt = "Summarize this.";
     if (persona === 'stoic') prompt = "You are a Stoic Philosopher. Deep summary.";
     if (persona === 'tough-love') prompt = "You are a Tough Love Coach. Be blunt.";
+    if (persona === 'shadow') prompt = "You are a Shadow Worker. Reveal hidden motives.";
 
     try {
         const aiRes = await openai.chat.completions.create({
@@ -137,18 +136,21 @@ app.post('/add-entry', async (req, res) => {
     res.redirect(unlockedStatus ? '/?success=true&unlocked=' + unlockedStatus : '/');
 });
 
-// --- 4. STRIPE ROUTE ---
+// --- 4. STRIPE ---
 app.post('/create-checkout', async (req, res) => {
     const { personaType } = req.body;
-    const amount = personaType === 'shadow' ? 1499 : 4999;
+    const prices: any = { 'tough-love': 999, 'shadow': 1499, 'lifetime': 4999 };
+    const amount = prices[personaType] || 4999;
 
-    const session = await stripe.checkout.sessions.create({
-        line_items: [{ price_data: { currency: 'usd', product_data: { name: 'Unlock ' + personaType }, unit_amount: amount }, quantity: 1 }],
-        mode: 'payment',
-        success_url: 'https://' + req.get('host') + '/?success=true&unlocked=' + personaType,
-        cancel_url: 'https://' + req.get('host'),
-    });
-    res.json({ url: session.url });
+    try {
+        const session = await stripe.checkout.sessions.create({
+            line_items: [{ price_data: { currency: 'usd', product_data: { name: 'Unlock ' + personaType }, unit_amount: amount }, quantity: 1 }],
+            mode: 'payment',
+            success_url: 'https://' + req.get('host') + '/?success=true&unlocked=' + personaType,
+            cancel_url: 'https://' + req.get('host'),
+        });
+        res.json({ url: session.url });
+    } catch (err) { res.status(500).json({ error: "Stripe error" }); }
 });
 
 app.listen(PORT, () => console.log("Live on " + PORT));
