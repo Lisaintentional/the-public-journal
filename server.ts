@@ -57,7 +57,17 @@ app.post('/api/create-checkout-session', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+        <h1>The Public Journal is Live</h1>
+        <p>If you see this, your server and Supabase are connected!</p>
+        <a href="/api/journal">View API Data</a>
+      </body>
+    </html>
+  `);
+});
 app.listen(PORT, () => {
   console.log(`ZEN MASTER: Full App Engine Live on Port ${PORT}`);
 });
