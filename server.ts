@@ -126,22 +126,42 @@ app.post('/add-entry', async (req, res) => {
 });
 
 app.post('/add-entry', async (req, res) => {
-    // 1. Get the current session from the server-side client
     const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) return res.status(401).send("Please login first");
-
     const { text, persona } = req.body;
     
-    // ... AI logic here ...
+    if (!session) return res.redirect('/');
 
-    // 2. Insert with the user_id!
+    // 1. Define the variable OUTSIDE the try block so it's visible everywhere
+    let aiSummary = "";
+
+    let prompt = "Summarize this.";
+    if (persona === 'stoic') prompt = "You are a Stoic Philosopher. Deep summary.";
+    if (persona === 'tough-love') prompt = "You are a Tough Love Coach. Be blunt.";
+    if (persona === 'zen') prompt = "You are a Zen Master. Short koan.";
+    if (persona === 'socratic') prompt = "You are a Socratic Inquirer. Ask a question.";
+    if (persona === 'shadow') prompt = "You are a Shadow Worker. Reveal motives.";
+    if (persona === 'offline') prompt = "You are Offline. Focus on now.";
+
+    try {
+        const aiRes = await openai.chat.completions.create({
+            messages: [{ role: "system", content: prompt }, { role: "user", content: text }],
+            model: "gpt-3.5-turbo",
+        });
+        // 2. Assign the result to our variable
+        aiSummary = aiRes.choices[0].message.content || "";
+    } catch (err) { 
+        console.log("AI failed, saving text only."); 
+    }
+
+    // 3. Now the database save can see aiSummary perfectly!
     await supabase.from('journal_entries').insert([{ 
         text, 
         summary: aiSummary, 
-        user_id: session.user.id // This is the magic "Anchor"
+        user_id: session.user.id 
     }]);
 
+    res.redirect('/');
+});
     res.redirect('/');
 });
 app.listen(PORT, () => console.log("Vault Live with Auth"));
