@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -8,105 +9,103 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Supabase & Stripe
+// 1. Initialize Clients
 const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2023-10-16' as any });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- HOME ROUTE (The Full Dashboard UI) ---
+// 2. The Dashboard Route
 app.get('/', async (req: Request, res: Response) => {
-  const { data: entries } = await supabase.from('journal_entries').select('*').order('created_at', { ascending: false });
+  try {
+    const { data: entries } = await supabase.from('journal_entries').select('*').order('created_at', { ascending: false });
 
-  const listItems = entries?.map(e => `
-   const listItems = entries?.map(e => `
-  <div style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e1e4e8;">
-    <div style="color: #666; font-size: 0.8rem;">${new Date(e.created_at).toLocaleString()}</div>
-    <div style="font-size: 1.1rem; margin: 10px 0;">${e.text}</div>
-    
-    ${e.summary ? `
-      <div style="background: #f0f7ff; padding: 10px; border-radius: 8px; border-left: 4px solid #007bff;">
-        <strong>AI Persona says:</strong> ${e.summary}
-      </div>` : ''}
-  </div>
-`).join('');
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>The Public Journal | Private Vault</title>
-        <style>
-            body { font-family: sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; color: #333; }
-            .container { max-width: 700px; margin: 0 auto; }
-            .card-form { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 40px; }
-            textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 15px; min-height: 100px; margin-bottom: 15px; box-sizing: border-box; }
-            button { background: #1a1a1a; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Journal Vault</h1>
-            <div class="card-form">
-                <form action="/add-entry" method="POST">
-                    <textarea name="text" placeholder="What's happening offline?" required></textarea>
-                    <button type="submit">Secure Entry</button>
-                </form>
-            </div>
-            <div id="entries-list">${listItems}</div>
-        </div>
-    </body>
-    </html>
-  `);
+    const listItems = entries?.map(e => `
+      <div style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e1e4e8; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div style="color: #888; font-size: 0.8rem; margin-bottom: 5px;">${new Date(e.created_at).toLocaleString()}</div>
+        <div style="font-size: 1.1rem; color: #333;">${e.text}</div>
+        ${e.summary ? `
+          <div style="margin-top: 15px; padding: 10px; background: #f0f7ff; border-left: 4px solid #007bff; border-radius: 4px; font-style: italic; color: #0056b3;">
+            <strong>AI Insight:</strong> ${e.summary}
+          </div>
+        ` : ''}
+      </div>
+    `).join('') || '<p style="text-align: center; color: #888;">Your vault is currently empty.</p>';
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <title>Journal Vault | AI Personas</title>
+          <style>
+              body { font-family: -apple-system, sans-serif; background: #f8f9fa; padding: 40px 20px; }
+              .container { max-width: 600px; margin: 0 auto; }
+              textarea { width: 100%; height: 100px; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; box-sizing: border-box; }
+              button { background: #1a1a1a; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
+              .unlock { background: #007bff; margin-bottom: 20px; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <button class="unlock" onclick="checkout()">Unlock New AI Personas</button>
+              <div style="background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px;">
+                  <form action="/add-entry" method="POST">
+                      <textarea name="text" placeholder="Write something for the AI to analyze..." required></textarea>
+                      <button type="submit">Secure Entry & Analyze</button>
+                  </form>
+              </div>
+              <div id="list">${listItems}</div>
+          </div>
+          <script>
+              async function checkout() {
+                  const res = await fetch('/api/create-checkout-session', { method: 'POST' });
+                  const data = await res.json();
+                  if (data.url) window.location.href = data.url;
+              }
+          </script>
+      </body>
+      </html>
+    `);
+  } catch (err) {
+    res.status(500).send("Server Error");
+  }
 });
 
-// --- API: ADD ENTRY ---
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// --- API: ADD ENTRY WITH AI SUMMARY ---
+// 3. The AI + Database Route
 app.post('/add-entry', async (req: Request, res: Response) => {
   const { text } = req.body;
+  let aiSummary = "";
 
   if (text) {
     try {
-      // 1. The AI Step: Ask OpenAI to process the text
       const completion = await openai.chat.completions.create({
         messages: [
-          { 
-            role: "system", 
-            content: "You are a Stoic Philosopher. Summarize the user's journal entry into one deep, insightful sentence." 
-          },
+          { role: "system", content: "You are a Stoic Philosopher. Provide a brief, one-sentence reflection on this journal entry." },
           { role: "user", content: text }
         ],
         model: "gpt-3.5-turbo",
       });
-
-      const aiSummary = completion.choices[0].message.content;
-
-      // 2. The Database Step: Save both the original text AND the AI summary
-      await supabase.from('journal_entries').insert([
-        { 
-          text: text, 
-          summary: aiSummary 
-        }
-      ]);
-    } catch (error) {
-      console.error("AI Error:", error);
-      // Fallback: save without summary if AI fails
-      await supabase.from('journal_entries').insert([{ text }]);
+      aiSummary = completion.choices[0].message.content || "";
+    } catch (e) {
+      console.log("AI failed, saving text only.");
     }
+    await supabase.from('journal_entries').insert([{ text, summary: aiSummary }]);
   }
   res.redirect('/');
 });
-// --- START SERVER ---
-const PORT = process.env.PORT || 8080; // Google Cloud prefers 8080 or 8081
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`ZEN MASTER: Full App Engine Live on Port ${PORT}`);
+// 4. Stripe Route
+app.post('/api/create-checkout-session', async (req, res) => {
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [{ price_data: { currency: 'usd', product_data: { name: 'Stoic Persona Unlock' }, unit_amount: 1999 }, quantity: 1 }],
+    mode: 'payment',
+    success_url: req.headers.origin + '/?success=true',
+    cancel_url: req.headers.origin + '/?canceled=true',
+  });
+  res.json({ url: session.url });
 });
+
+app.listen(PORT, () => console.log('Server Live'));
