@@ -55,14 +55,20 @@ app.get('/', async (req: Request, res: Response) => {
                       <textarea name="text" placeholder="Write something for the AI to analyze..." required></textarea>
                       <button type="submit">Secure Entry & Analyze</button>
                   </form>
-              </div>
-              <div id="list">${listItems}</div>
-          </div>
-          <script>
-              async function checkout() {
-                  const res = await fetch('/api/create-checkout-session', { method: 'POST' });
-                  const data = await res.json();
-                  if (data.url) window.location.href = data.url;
+             <form action="/add-entry" method="POST">
+    <textarea name="text" placeholder="Write something..." required></textarea>
+    
+    <div style="margin-bottom: 15px;">
+        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Choose Your Persona:</label>
+        <select name="persona" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            <option value="stoic">Stoic Philosopher (Standard)</option>
+            <option value="cyberpunk">Cyberpunk Rebel (Pro Only)</option>
+            <option value="zen">Zen Master (Pro Only)</option>
+        </select>
+    </div>
+
+    <button type="submit">Secure Entry & Analyze</button>
+</form>
               }
           </script>
       </body>
@@ -74,22 +80,31 @@ app.get('/', async (req: Request, res: Response) => {
 });
 
 // 3. The AI + Database Route
-app.post('/add-entry', async (req: Request, res: Response) => {
-  const { text } = req.body;
+app.postapp.post('/add-entry', async (req: Request, res: Response) => {
+  const { text, persona } = req.body; // Now we get the persona choice!
   let aiSummary = "";
+
+  // Set the "Voice" based on the selection
+  let systemPrompt = "You are a Stoic Philosopher. Summarize this in one deep sentence.";
+  
+  if (persona === 'cyberpunk') {
+    systemPrompt = "You are a gritty Cyberpunk hacker. Summarize this using slang and high-tech cynicism.";
+  } else if (persona === 'zen') {
+    systemPrompt = "You are a Zen Master. Respond with a short, peaceful koan or reflection.";
+  }
 
   if (text) {
     try {
       const completion = await openai.chat.completions.create({
         messages: [
-          { role: "system", content: "You are a Stoic Philosopher. Provide a brief, one-sentence reflection on this journal entry." },
+          { role: "system", content: systemPrompt },
           { role: "user", content: text }
         ],
         model: "gpt-3.5-turbo",
       });
       aiSummary = completion.choices[0].message.content || "";
     } catch (e) {
-      console.log("AI failed, saving text only.");
+      console.log("AI failed");
     }
     await supabase.from('journal_entries').insert([{ text, summary: aiSummary }]);
   }
