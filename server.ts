@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// --- 1. THE ENGINE (Initialization) ---
+// --- 1. THE ENGINE ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -35,28 +35,43 @@ app.get('/', async (req: Request, res: Response) => {
       .order('created_at', { ascending: false });
 
     const listItems = entries?.map((e: any) => `
-      <div style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e1e4e8;">
+      <div style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e1e4e8; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
         <div style="color: #666; font-size: 0.8rem;">${new Date(e.created_at).toLocaleString()}</div>
-        <div style="font-size: 1.1rem; margin: 10px 0;">${e.text}</div>
-        ${e.summary ? `<div style="background: #f0f7ff; padding: 10px; border-radius: 8px; border-left: 4px solid #007bff; color: #0056b3;"><strong>AI Persona:</strong> ${e.summary}</div>` : ''}
+        <div style="font-size: 1.1rem; margin: 10px 0; color: #333;">${e.text}</div>
+        ${e.summary ? `<div style="background: #f0f7ff; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff; color: #0056b3; font-style: italic;"><strong>AI Persona:</strong> ${e.summary}</div>` : ''}
       </div>
-    `).join('') || '<p>No entries yet.</p>';
+    `).join('') || '<p style="text-align: center; color: #888;">The vault is empty.</p>';
 
     res.send(`
+      <!DOCTYPE html>
       <html>
-        <body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px; background: #f8f9fa;">
-          <h1>Journal Vault</h1>
-          <form action="/add-entry" method="POST" style="background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <textarea name="text" style="width: 100%; height: 100px; margin-bottom: 10px;" placeholder="Write here..." required></textarea>
-            <select name="persona" style="width: 100%; padding: 10px; margin-bottom: 10px;">
-              <option value="stoic">Stoic Philosopher</option>
-              <option value="cyberpunk">Cyberpunk Rebel</option>
-              <option value="zen">Zen Master</option>
-            </select>
-            <button type="submit" style="width: 100%; padding: 10px; background: #1a1a1a; color: white; border: none; border-radius: 8px; cursor: pointer;">Secure Entry</button>
-          </form>
-          <div id="list">${listItems}</div>
-        </body>
+      <head>
+          <title>The Public Journal | Vault</title>
+          <style>
+              body { font-family: -apple-system, sans-serif; background: #f8f9fa; padding: 40px 20px; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; }
+              textarea { width: 100%; height: 100px; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; box-sizing: border-box; font-size: 1rem; }
+              select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; background: white; }
+              button { background: #1a1a1a; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
+              button:hover { background: #333; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h1 style="text-align: center; margin-bottom: 30px;">Journal Vault</h1>
+              <form action="/add-entry" method="POST" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 40px;">
+                  <textarea name="text" placeholder="What's on your mind?" required></textarea>
+                  <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: bold;">Select AI Persona:</label>
+                  <select name="persona">
+                      <option value="stoic">Stoic Philosopher (Standard)</option>
+                      <option value="cyberpunk">Cyberpunk Rebel (Pro)</option>
+                      <option value="zen">Zen Master (Pro)</option>
+                  </select>
+                  <button type="submit">Secure Entry & Analyze</button>
+              </form>
+              <div id="entries">${listItems}</div>
+          </div>
+      </body>
       </html>
     `);
   } catch (err) {
@@ -69,9 +84,9 @@ app.post('/add-entry', async (req: Request, res: Response) => {
   const { text, persona } = req.body;
   let aiSummary = "";
 
-  let systemPrompt = "You are a Stoic Philosopher. Summarize this deeply.";
-  if (persona === 'cyberpunk') systemPrompt = "You are a gritty Cyberpunk hacker. Use tech slang.";
-  if (persona === 'zen') systemPrompt = "You are a Zen Master. Respond with a short koan.";
+  let systemPrompt = "You are a Stoic Philosopher. Summarize this journal entry in one deep, reflective sentence.";
+  if (persona === 'cyberpunk') systemPrompt = "You are a gritty Cyberpunk hacker. Summarize this using slang and high-tech cynicism.";
+  if (persona === 'zen') systemPrompt = "You are a Zen Master. Respond with a short, peaceful koan or reflection.";
 
   try {
     const completion = await openai.chat.completions.create({
@@ -80,11 +95,14 @@ app.post('/add-entry', async (req: Request, res: Response) => {
     });
     aiSummary = completion.choices[0].message.content || "";
   } catch (e) {
-    console.log("AI failed");
+    console.log("AI connection failed.");
   }
 
   await supabase.from('journal_entries').insert([{ text, summary: aiSummary }]);
   res.redirect('/');
 });
 
-app.listen(PORT, () => console.log(\`Server Live on \${PORT}\`));
+// --- 4. START ---
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
+});
