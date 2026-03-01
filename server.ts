@@ -1,4 +1,13 @@
 import express, { Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// Connect to your Supabase Project
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -6,42 +15,42 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// This is the app's "temporary memory"
-let entries: string[] = ["The Zen Master is watching the stars.", "First public entry!"];
+// 1. HOME PAGE: Fetch entries from Supabase and show them
+app.get('/', async (req: Request, res: Response) => {
+  const { data: entries, error } = await supabase
+    .from('journal_entries')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-app.get('/', (req: Request, res: Response) => {
-  const entriesHtml = entries.map(e => `<li style="padding: 10px; border-bottom: 1px solid #ddd;">${e}</li>`).join('');
+  const entriesHtml = entries?.map(e => `
+    <li style="padding: 15px; border-bottom: 1px solid #eee; background: white; margin-bottom: 10px; border-radius: 5px;">
+      ${e.text} <br> <small style="color: #888;">${new Date(e.created_at).toLocaleString()}</small>
+    </li>`).join('') || '<li>No entries yet.</li>';
   
   res.send(`
     <html>
-      <body style="font-family: sans-serif; max-width: 500px; margin: 50px auto; text-align: center; background-color: #f4f4f9;">
-        <h1 style="color: #333;">The Public Journal</h1>
-        
-        <form action="/add-entry" method="POST" style="margin-bottom: 30px;">
-          <input type="text" name="entry" placeholder="What's on your mind?" required style="padding: 10px; width: 70%;">
-          <button type="submit" style="padding: 10px; cursor: pointer; background: #333; color: white; border: none;">Post</button>
+      <body style="font-family: sans-serif; max-width: 600px; margin: 50px auto; background-color: #f0f2f5;">
+        <h1 style="text-align: center;">The Public Journal (Supabase Edition)</h1>
+        <form action="/add-entry" method="POST" style="display: flex; gap: 10px; margin-bottom: 30px;">
+          <input type="text" name="entry" placeholder="Write something..." required style="flex-grow: 1; padding: 10px;">
+          <button type="submit" style="padding: 10px; background: #333; color: white; border: none; cursor: pointer;">Post</button>
         </form>
-
-        <ul style="list-style: none; padding: 0; text-align: left; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-          ${entriesHtml}
-        </ul>
+        <ul style="list-style: none; padding: 0;">${entriesHtml}</ul>
       </body>
     </html>
   `);
 });
 
-app.post('/add-entry', (req: Request, res: Response) => {
-  const newEntry = req.body.entry;
-  if (newEntry) {
-    entries.unshift(newEntry);
+// 2. ADD ENTRY: Save new entry to Supabase
+app.post('/add-entry', async (req: Request, res: Response) => {
+  const newText = req.body.entry;
+  if (newText) {
+    await supabase.from('journal_entries').insert([{ text: newText }]);
   }
   res.redirect('/');
 });
 
-// THIS IS THE PART RENDER NEEDS TO STAY ALIVE:
 app.listen(PORT, () => {
-  console.log(`-----------------------------------------`);
-  console.log(`ZEN MASTER: The Offline is now breathing.`);
-  console.log(`SERVER STATUS: Live on Port ${PORT}`);
-  console.log(`-----------------------------------------`);
+  console.log(`ZEN MASTER: Connected to Supabase. Live on port ${PORT}`);
 });
+
