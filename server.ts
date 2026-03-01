@@ -76,23 +76,18 @@ app.get('/', async (req: Request, res: Response) => {
                     <option value="shadow" ${!isPro ? 'disabled' : ''}>🌑 Shadow ${!isPro ? '🔒' : ''}</option>
                 </select>
                 <button type="submit" style="width:100%; padding:14px; background:#3b82f6; border:none; color:white; border-radius:8px; cursor:pointer; font-weight:bold;">Secure Entry</button>
-            </form>
-        </div>
-        <div id="list">${listItems}</div>
-      </div>
-      <script>
-        async function buy(type) {
-            const res = await fetch('/create-checkout', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({type}) 
-            });
-            const data = await res.json();
-            if(data.url) window.location.href = data.url;
-        }
-      </script>
-    </body>
-    </html>
+            <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // This script detects the login from the email link and refreshes the page
+  const supabase = supabase.createClient('YOUR_SUPABASE_URL', 'YOUR_SUPABASE_ANON_KEY');
+  
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN') {
+      // Once signed in via the link, refresh to show the vault!
+      window.location.href = '/';
+    }
+  });
+</script>
   `);
 });
 
@@ -130,14 +125,23 @@ app.post('/add-entry', async (req, res) => {
     res.redirect('/');
 });
 
-app.post('/create-checkout', async (req, res) => {
-    const session = await stripe.checkout.sessions.create({
-        line_items: [{ price_data: { currency: 'usd', product_data: { name: 'Lifetime Access' }, unit_amount: 4999 }, quantity: 1 }],
-        mode: 'payment',
-        success_url: 'https://' + req.get('host') + '/?success=true',
-        cancel_url: 'https://' + req.get('host'),
-    });
-    res.json({ url: session.url });
-});
+app.post('/add-entry', async (req, res) => {
+    // 1. Get the current session from the server-side client
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) return res.status(401).send("Please login first");
 
+    const { text, persona } = req.body;
+    
+    // ... AI logic here ...
+
+    // 2. Insert with the user_id!
+    await supabase.from('journal_entries').insert([{ 
+        text, 
+        summary: aiSummary, 
+        user_id: session.user.id // This is the magic "Anchor"
+    }]);
+
+    res.redirect('/');
+});
 app.listen(PORT, () => console.log("Vault Live with Auth"));
