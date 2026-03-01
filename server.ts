@@ -40,75 +40,27 @@ app.get('/', async (req: Request, res: Response) => {
     };
 
     res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <title>The Public Journal | Vault</title>
-          <style>
-              body { font-family: sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; margin: 0; }
-              .container { max-width: 600px; margin: 0 auto; padding-top: 40px; }
-              .card { background: #1e293b; padding: 25px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 30px; }
-              textarea { width: 100%; height: 100px; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box; }
-              select { width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; margin: 15px 0; }
-              .btn-primary { background: #3b82f6; color: white; border: none; padding: 14px; border-radius: 8px; width: 100%; cursor: pointer; font-weight: bold; }
-              .price-list { list-style: none; padding: 0; margin-bottom: 20px; font-size: 0.9rem; }
-              .price-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #334155; }
-              .buy-btn { background: #10b981; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
-              .buy-btn:hover { background: #059669; }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <h1 style="text-align: center; margin-bottom: 10px;">The Public Journal</h1>
-              <p style="text-align: center; color: #94a3b8; margin-bottom: 30px;">Premium AI Reflection Vault</p>
-              
-              <div class="card" style="border-color: #10b981;">
-                  <h4 style="margin: 0 0 15px 0; color: #10b981;">🛒 Unlock Features</h4>
-                  <div class="price-list">
-                      <div class="price-item"><span>🥊 Tough Love</span> <button class="buy-btn" onclick="buy('tough-love')">$9.99</button></div>
-                      <div class="price-item"><span>🧘 Zen Master</span> <button class="buy-btn" onclick="buy('zen')">$9.99</button></div>
-                      <div class="price-item"><span>🔍 Socratic Inquirer</span> <button class="buy-btn" onclick="buy('socratic')">$9.99</button></div>
-                      <div class="price-item"><span>🌑 Shadow Worker</span> <button class="buy-btn" onclick="buy('shadow')">$14.99</button></div>
-                      <div class="price-item"><span>🌲 The Offline</span> <button class="buy-btn" onclick="buy('offline')">$19.99</button></div>
-                      <div class="price-item" style="border: none; font-weight: bold; padding-top: 15px;"><span>🌟 LIFETIME ACCESS (ALL)</span> <button class="buy-btn" style="background:#3b82f6;" onclick="buy('lifetime')">$49.99</button></div>
-                  </div>
-              </div>
-
-              <div class="card">
-                  <form action="/add-entry" method="POST">
-                      <input type="hidden" name="unlockedStatus" value="${unlocked}">
-                      <textarea name="text" placeholder="Write your reflection here..." required></textarea>
-                      <select name="persona">
-                          <option value="stoic">🏛️ The Stoic (Free)</option>
-                          <option value="tough-love" ${checkLock('tough-love')}>🥊 Tough Love ${checkLock('tough-love') ? '🔒' : ''}</option>
-                          <option value="zen" ${checkLock('zen')}>🧘 Zen Master ${checkLock('zen') ? '🔒' : ''}</option>
-                          <option value="socratic" ${checkLock('socratic')}>🔍 Socratic Inquirer ${checkLock('socratic') ? '🔒' : ''}</option>
-                          <option value="shadow" ${checkLock('shadow')}>🌑 Shadow Worker ${checkLock('shadow') ? '🔒' : ''}</option>
-                          <option value="offline" ${checkLock('offline')}>🌲 The Offline ${checkLock('offline') ? '🔒' : ''}</option>
-                      </select>
-                      <button type="submit" class="btn-primary">Secure & Analyze</button>
-                  </form>
-              </div>
-
-              <div id="list">${listItems}</div>
-          </div>
-
-          <script>
-              async function buy(persona) {
-                  const res = await fetch('/api/create-checkout-session', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ personaType: persona })
-                  });
-                  const data = await res.json();
-                  if (data.url) window.location.href = data.url;
-              }
-          </script>
-      </body>
-      </html>
-    `);
-  } catch (e) { res.status(500).send("Error loading vault."); }
-});
+     <script>
+    async function buy(persona) {
+        console.log("Attempting to buy:", persona);
+        try {
+            const res = await fetch('/api/create-checkout-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ personaType: persona })
+            });
+            const data = await res.json();
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                alert("Server didn't return a payment link. Check Render logs.");
+            }
+        } catch (err) {
+            console.error("Fetch error:", err);
+            alert("Connection to server failed.");
+        }
+    }
+</script>
 
 // 3. THE ADD ENTRY ROUTE
 app.post('/add-entry', async (req: Request, res: Response) => {
@@ -165,13 +117,14 @@ app.post('/api/create-checkout-session', async (req: Request, res: Response) => 
         quantity: 1,
       }],
       mode: 'payment',
-      success_url: `\${req.headers.origin}/?success=true&unlocked=\${personaType}`,
-      cancel_url: `\${req.headers.origin}/?canceled=true`,
+      // Fixed: Removed backslashes from template strings
+      success_url: `${req.headers.origin}/?success=true&unlocked=${personaType}`,
+      cancel_url: `${req.headers.origin}/?canceled=true`,
     });
     res.json({ url: session.url });
   } catch (err) {
+    console.error("Stripe Session Error:", err);
     res.status(500).json({ error: "Stripe error" });
   }
 });
-
 app.listen(PORT, () => console.log("Vault Live on " + PORT));
