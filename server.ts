@@ -31,26 +31,19 @@ app.get('/', async (req: Request, res: Response) => {
     }).join('') || '<p style="text-align: center; color: #64748b;">The vault is empty.</p>';
 
     res.send(`
+      res.send(`
       <!DOCTYPE html>
       <html>
       <head>
           <title>Lifetime Access Vault</title>
           <style>
-              body { font-family: sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; margin: 0; }
-              .container { max-width: 600px; margin: 0 auto; padding-top: 40px; }
-              .card { background: #1e293b; padding: 25px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 30px; }
-              textarea { width: 100%; height: 100px; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box; }
-              select { width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; margin: 15px 0; }
-              .btn-primary { background: #3b82f6; color: white; border: none; padding: 14px; border-radius: 8px; width: 100%; cursor: pointer; font-weight: bold; }
-              .btn-stripe { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 10px; width: 100%; border-radius: 8px; margin-bottom: 20px; cursor: pointer; }
-              .entry { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 15px; }
-              .ai-box { background: #0f172a; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 10px; color: #38bdf8; }
+              /* ... keep your existing styles here ... */
+              .btn-stripe { background: #3b82f6; color: white; padding: 12px; border-radius: 8px; width: 100%; cursor: pointer; border: none; font-weight: bold; margin-bottom: 20px; }
           </style>
       </head>
       <body>
           <div class="container">
-              <h1 style="text-align: center; margin-bottom: 5px;">Lifetime Access Vault</h1>
-              <p style="text-align: center; color: #94a3b8; margin-bottom: 30px;">Secure Offline Reflections</p>
+              <h1 style="text-align: center;">Lifetime Access Vault</h1>
               
               <button class="btn-stripe" onclick="checkout()">💳 Manage Lifetime Subscription</button>
 
@@ -70,15 +63,31 @@ app.get('/', async (req: Request, res: Response) => {
               </div>
               <div id="list">${listItems}</div>
           </div>
+
           <script>
               async function checkout() {
-                  const res = await fetch('/api/create-checkout-session', { method: 'POST' });
-                  const data = await res.json();
-                  if (data.url) window.location.href = data.url;
+                  console.log("Button clicked!"); // This helps us test
+                  try {
+                      const res = await fetch('/api/create-checkout-session', { 
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                      });
+                      const data = await res.json();
+                      if (data.url) {
+                          window.location.href = data.url;
+                      } else {
+                          console.error("No URL returned from server", data);
+                          alert("Stripe error. Check server logs.");
+                      }
+                  } catch (err) {
+                      console.error("Fetch failed:", err);
+                      alert("Connection error. Is the server live?");
+                  }
               }
           </script>
       </body>
       </html>
+
     `);
   } catch (e) { res.status(500).send("Error loading vault."); }
 });
