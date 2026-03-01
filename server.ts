@@ -107,10 +107,46 @@ app.post('/login', async (req, res) => {
     res.send("<body style='background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding-top:100px;'><h2>Check your email! ✉️</h2></body>");
 });
 
-app.get('/logout', async (req, res) => {
-    await supabase.auth.signOut();
-    res.redirect('/');
+app.get// ... existing server code ...
+
+app.get('/', async (req: Request, res: Response) => {
+    // ... logic for entries ...
+
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>The Public Journal</title>
+            </head>
+        <body>
+            <div class="container">
+                </div>
+
+            <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+            <script>
+                const supabaseUrl = 'YOUR_SUPABASE_URL';
+                const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+                const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+                supabase.auth.onAuthStateChange((event, session) => {
+                    if (event === 'SIGNED_IN') {
+                        window.location.href = '/'; 
+                    }
+                });
+
+                async function buy(persona) {
+                    // ... your buying logic ...
+                }
+            </script>
+        </body>
+        </html>
+    `);
 });
+
+// ... other routes (login, add-entry, create-checkout) ...
+
+// THIS STAYS AS THE VERY LAST LINE
+app.listen(PORT, () => console.log("Live on " + PORT));
 
 // --- 3. JOURNAL ---
 app.post('/add-entry', async (req, res) => {
