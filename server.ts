@@ -1,56 +1,63 @@
+
+
 import express, { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Connect to your Supabase Project
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Initialize Supabase & Stripe
+const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2023-10-16' as any });
+
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.static('dist')); // Serves your frontend if you built one
 
-// 1. HOME PAGE: Fetch entries from Supabase and show them
-app.get('/', async (req: Request, res: Response) => {
-  const { data: entries, error } = await supabase
-    .from('journal_entries')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  const entriesHtml = entries?.map(e => `
-    <li style="padding: 15px; border-bottom: 1px solid #eee; background: white; margin-bottom: 10px; border-radius: 5px;">
-      ${e.text} <br> <small style="color: #888;">${new Date(e.created_at).toLocaleString()}</small>
-    </li>`).join('') || '<li>No entries yet.</li>';
-  
-  res.send(`
-    <html>
-      <body style="font-family: sans-serif; max-width: 600px; margin: 50px auto; background-color: #f0f2f5;">
-        <h1 style="text-align: center;">The Public Journal (Supabase Edition)</h1>
-        <form action="/add-entry" method="POST" style="display: flex; gap: 10px; margin-bottom: 30px;">
-          <input type="text" name="entry" placeholder="Write something..." required style="flex-grow: 1; padding: 10px;">
-          <button type="submit" style="padding: 10px; background: #333; color: white; border: none; cursor: pointer;">Post</button>
-        </form>
-        <ul style="list-style: none; padding: 0;">${entriesHtml}</ul>
-      </body>
-    </html>
-  `);
+// --- JOURNAL API (Using Supabase instead of SQLite) ---
+app.get('/api/journal', async (req, res) => {
+  const { data, error } = await supabase.from('journal_entries').select('*').order('created_at', { ascending: false });
+  if (error) return res.status(500).json(error);
+  res.json(data);
 });
 
-// 2. ADD ENTRY: Save new entry to Supabase
-app.post('/add-entry', async (req: Request, res: Response) => {
-  const newText = req.body.entry;
-  if (newText) {
-    await supabase.from('journal_entries').insert([{ text: newText }]);
+app.post('/api/journal', async (req, res) => {
+  const { text, summary } = req.body;
+  const { data, error } = await supabase.from('journal_entries').insert([{ text, summary }]);
+  if (error) return res.status(500).json(error);
+  res.json({ success: true, data });
+});
+
+// --- STRIPE API (Your original logic) ---
+app.post('/api/create-checkout-session', async (req, res) => {
+  try {
+    const { personaId, email } = req.body;
+    const origin = req.headers.origin || "http://localhost:3000";
+    
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `Unlock: ${personaId}` },
+          unit_amount: 1999, // $19.99
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      customer_email: email,
+      success_url: `${origin}?success=true`,
+      cancel_url: `${origin}?canceled=true`,
+    });
+    res.json({ url: session.url });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
-  res.redirect('/');
 });
 
 app.listen(PORT, () => {
-  console.log(`ZEN MASTER: Connected to Supabase. Live on port ${PORT}`);
+  console.log(`ZEN MASTER: Full App Engine Live on Port ${PORT}`);
 });
-
