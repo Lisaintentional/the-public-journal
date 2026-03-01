@@ -43,35 +43,14 @@ app.get('/', async (req: Request, res: Response) => {
     `).join('') || '<p style="text-align: center; color: #888;">The vault is empty.</p>';
 
     res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <title>The Public Journal | Vault</title>
-          <style>
-              body { font-family: -apple-system, sans-serif; background: #f8f9fa; padding: 40px 20px; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; }
-              textarea { width: 100%; height: 100px; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; box-sizing: border-box; font-size: 1rem; }
-              select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; background: white; }
-              button { background: #1a1a1a; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
-              button:hover { background: #333; }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <h1 style="text-align: center; margin-bottom: 30px;">Journal Vault</h1>
-              <form action="/add-entry" method="POST" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 40px;">
-                  <textarea name="text" placeholder="What's on your mind?" required></textarea>
-                  <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: bold;">Select AI Persona:</label>
-                  <select name="persona">
-                      <option value="stoic">Stoic Philosopher (Standard)</option>
-                      <option value="cyberpunk">Cyberpunk Rebel (Pro)</option>
-                      <option value="zen">Zen Master (Pro)</option>
-                  </select>
-                  <button type="submit">Secure Entry & Analyze</button>
-              </form>
-              <div id="entries">${listItems}</div>
-          </div>
-      </body>
+      <select name="persona">
+    <option value="stoic">🏛️ The Stoic</option>
+    <option value="tough-love">🥊 Tough Love</option>
+    <option value="zen">🧘 Zen Master</option>
+    <option value="socratic">🔍 Socratic Inquirer</option>
+    <option value="shadow">🌑 Shadow Worker</option>
+    <option value="offline">🌲 The Offline</option>
+</select>
       </html>
     `);
   } catch (err) {
@@ -80,7 +59,42 @@ app.get('/', async (req: Request, res: Response) => {
 });
 
 // --- 3. THE ADD ENTRY ROUTE ---
-app.post('/add-entry', async (req: Request, res: Response) => {
+app.post(app.post('/add-entry', async (req: Request, res: Response) => {
+  const { text, persona } = req.body;
+  let aiSummary = "";
+  let systemPrompt = "";
+
+  // Map the choice to the specific "Brain"
+  switch(persona) {
+    case 'stoic': 
+      systemPrompt = "You are a Stoic Philosopher. Provide a deep, grounded reflection."; break;
+    case 'tough-love': 
+      systemPrompt = "You are a Tough Love Coach. Be blunt, direct, and call out excuses."; break;
+    case 'zen': 
+      systemPrompt = "You are a Zen Master. Respond with a peaceful, minimal koan."; break;
+    case 'socratic': 
+      systemPrompt = "You are a Socratic Inquirer. Respond only with a piercing question."; break;
+    case 'shadow': 
+      systemPrompt = "You are a Shadow Worker. Reveal the hidden psychological motive here."; break;
+    case 'offline': 
+      systemPrompt = "You are The Offline Guide. Encourage digital detox and physical presence."; break;
+    default: 
+      systemPrompt = "Summarize this journal entry.";
+  }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: text }],
+      model: "gpt-3.5-turbo",
+    });
+    aiSummary = completion.choices[0].message.content || "";
+  } catch (e) {
+    console.log("AI connection failed.");
+  }
+
+  await supabase.from('journal_entries').insert([{ text, summary: aiSummary }]);
+  res.redirect('/');
+});) => {
   const { text, persona } = req.body;
   let aiSummary = "";
 
