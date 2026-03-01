@@ -20,12 +20,17 @@ app.get('/', async (req: Request, res: Response) => {
   const { data: entries } = await supabase.from('journal_entries').select('*').order('created_at', { ascending: false });
 
   const listItems = entries?.map(e => `
-    <div style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e1e4e8;">
-      <div style="color: #666; font-size: 0.8rem; margin-bottom: 8px;">${new Date(e.created_at).toLocaleString()}</div>
-      <div style="font-size: 1.1rem; color: #1a1a1a;">${e.text}</div>
-    </div>
-  `).join('') || '<p style="text-align: center; color: #888;">No entries in your vault yet.</p>';
-
+   const listItems = entries?.map(e => `
+  <div style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e1e4e8;">
+    <div style="color: #666; font-size: 0.8rem;">${new Date(e.created_at).toLocaleString()}</div>
+    <div style="font-size: 1.1rem; margin: 10px 0;">${e.text}</div>
+    
+    ${e.summary ? `
+      <div style="background: #f0f7ff; padding: 10px; border-radius: 8px; border-left: 4px solid #007bff;">
+        <strong>AI Persona says:</strong> ${e.summary}
+      </div>` : ''}
+  </div>
+`).join('');
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -58,15 +63,50 @@ app.get('/', async (req: Request, res: Response) => {
 });
 
 // --- API: ADD ENTRY ---
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// --- API: ADD ENTRY WITH AI SUMMARY ---
 app.post('/add-entry', async (req: Request, res: Response) => {
   const { text } = req.body;
+
   if (text) {
-    await supabase.from('journal_entries').insert([{ text }]);
+    try {
+      // 1. The AI Step: Ask OpenAI to process the text
+      const completion = await openai.chat.completions.create({
+        messages: [
+          { 
+            role: "system", 
+            content: "You are a Stoic Philosopher. Summarize the user's journal entry into one deep, insightful sentence." 
+          },
+          { role: "user", content: text }
+        ],
+        model: "gpt-3.5-turbo",
+      });
+
+      const aiSummary = completion.choices[0].message.content;
+
+      // 2. The Database Step: Save both the original text AND the AI summary
+      await supabase.from('journal_entries').insert([
+        { 
+          text: text, 
+          summary: aiSummary 
+        }
+      ]);
+    } catch (error) {
+      console.error("AI Error:", error);
+      // Fallback: save without summary if AI fails
+      await supabase.from('journal_entries').insert([{ text }]);
+    }
   }
   res.redirect('/');
 });
-
 // --- START SERVER ---
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 8080; // Google Cloud prefers 8080 or 8081
+
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`ZEN MASTER: Full App Engine Live on Port ${PORT}`);
 });
