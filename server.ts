@@ -31,24 +31,40 @@ app.get('/', async (req: Request, res: Response) => {
     `).join('') || '<p>The vault is empty.</p>';
 
     res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <title>The Public Journal | Vault</title>
-          <style>
-              body { font-family: sans-serif; background: #f8f9fa; padding: 40px 20px; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; }
-              textarea { width: 100%; height: 100px; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; box-sizing: border-box; }
-              select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; background: white; }
-              button { background: #1a1a1a; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
-          </style>
-      </head>
-      <body>
-          <div class="container">
-              <h1 style="text-align: center;">Journal Vault</h1>
-              <form action="/add-entry" method="POST" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 40px;">
-                  <textarea name="text" placeholder="What's on your mind?" required></textarea>
-                  <label style="display: block; margin-bottom: 8px; font-weight: bold;">Select Persona:</label>
+     res.send(`
+  <!DOCTYPE html>
+  <html>
+  <head>
+      <title>The Public Journal | Lifetime Access</title>
+      <style>
+          body { font-family: -apple-system, sans-serif; background: #0f172a; padding: 40px 20px; color: #f8fafc; }
+          .container { max-width: 600px; margin: 0 auto; }
+          .badge { background: #3b82f6; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; display: inline-block; }
+          .card { background: #1e293b; padding: 25px; border-radius: 15px; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); margin-bottom: 30px; }
+          textarea { width: 100%; height: 120px; padding: 15px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-bottom: 15px; box-sizing: border-box; }
+          select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-bottom: 20px; }
+          .btn-primary { background: #3b82f6; color: white; border: none; padding: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
+          .btn-outline { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 20px; }
+          .entry { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #334155; }
+          .ai-box { background: #0f172a; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 15px; color: #38bdf8; font-style: italic; }
+      </style>
+  </head>
+  <body>
+      <div class="container">
+          <div style="text-align: center; margin-bottom: 40px;">
+              <span class="badge">Verified System</span>
+              <h1 style="margin: 0; font-size: 2rem;">Lifetime Access Vault</h1>
+              <p style="color: #94a3b8;">Your private reflections, AI-enhanced.</p>
+          </div>
+
+          <button class="btn-outline" onclick="checkout()">💳 Manage Lifetime Subscription</button>
+
+          <div class="card">
+              <form action="/add-entry" method="POST">
+                  <label style="display: block; margin-bottom: 8px; font-size: 0.9rem;">Current Thought Stream:</label>
+                  <textarea name="text" placeholder="Type your reflection..." required></textarea>
+                  
+                  <label style="display: block; margin-bottom: 8px; font-size: 0.9rem;">Apply AI Persona:</label>
                   <select name="persona">
                       <option value="stoic">🏛️ The Stoic</option>
                       <option value="tough-love">🥊 Tough Love</option>
@@ -57,14 +73,24 @@ app.get('/', async (req: Request, res: Response) => {
                       <option value="shadow">🌑 Shadow Worker</option>
                       <option value="offline">🌲 The Offline</option>
                   </select>
-                  <button type="submit">Secure Entry & Analyze</button>
+                  
+                  <button type="submit" class="btn-primary">Secure Entry & Process</button>
               </form>
-              <div id="entries">${listItems}</div>
           </div>
-      </body>
-      </html>
-    `);
-  } catch (err) {
+
+          <div id="entries">${listItems}</div>
+      </div>
+
+      <script>
+          async function checkout() {
+              const res = await fetch('/api/create-checkout-session', { method: 'POST' });
+              const data = await res.json();
+              if (data.url) window.location.href = data.url;
+          }
+      </script>
+  </body>
+  </html>
+`);
     res.status(500).send("Server Error");
   }
 });
@@ -98,5 +124,24 @@ app.post('/add-entry', async (req: Request, res: Response) => {
 
 // --- 4. START ---
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+ app.post('/api/create-checkout-session', async (req: Request, res: Response) => {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: 'The Public Journal: Lifetime Access' },
+          unit_amount: 9900, // $99.00
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: req.headers.origin + '/?success=true',
+      cancel_url: req.headers.origin + '/?canceled=true',
+    });
+    res.json({ url: session.url });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
