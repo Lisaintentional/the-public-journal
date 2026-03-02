@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-// Using Number() ensures the PORT is a valid number for Render's environment
 const PORT = Number(process.env.PORT) || 3000;
 
 const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
@@ -13,7 +12,7 @@ const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABA
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- THE BRANDED UI: Intentional, Not Chaotic ---
+// --- THE BRANDED UI: High-Contrast Intention ---
 const UI_SHELL = (content: string) => `
 <!DOCTYPE html>
 <html>
@@ -21,53 +20,61 @@ const UI_SHELL = (content: string) => `
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* Modern reset to ensure no "Default Blue" remains */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
-            background: #fafaf9; /* A warm, intentional off-white */
-            background-image: radial-gradient(circle at top right, #f5f5f4, #e7e5e4);
-            color: #44403c;
+            background: #0c0a09; /* Deep stone black */
+            color: #f5f5f4;
             display: flex; justify-content: center; align-items: center;
             min-height: 100vh; margin: 0;
+            overflow: hidden;
         }
         .card {
-            background: #ffffff;
-            padding: 48px; border-radius: 4px; /* Minimalist sharp edges for intention */
-            border: 1px solid #e7e5e4;
-            width: 90%; max-width: 400px; text-align: center;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            background: #ffffff; /* Pure white for maximum clarity */
+            padding: 56px 40px; 
+            border-radius: 2px; /* Sharp, intentional corners */
+            width: 90%; max-width: 420px; 
+            text-align: center;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.6s ease-out;
         }
-        .brand-header {
-            font-size: 0.65rem;
-            letter-spacing: 0.25em;
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .brand-tagline {
+            font-size: 0.6rem;
+            letter-spacing: 0.3em;
             text-transform: uppercase;
             color: #a8a29e;
-            margin-bottom: 40px;
+            margin-bottom: 48px;
+            font-weight: 700;
         }
-        .icon { font-size: 2rem; margin-bottom: 24px; display: block; filter: grayscale(1); }
-        h1 { font-size: 1.75rem; font-weight: 300; margin: 0 0 16px 0; color: #1c1917; }
-        p { color: #78716c; margin-bottom: 32px; line-height: 1.6; font-size: 0.95rem; }
+        h1 { font-size: 2rem; font-weight: 200; margin: 0 0 20px 0; color: #1c1917; letter-spacing: -0.02em; }
+        p { color: #57534e; margin-bottom: 40px; line-height: 1.7; font-size: 1rem; }
         input {
-            width: 100%; padding: 14px; margin-bottom: 12px;
-            border-radius: 2px; border: 1px solid #d6d3d1;
-            background: #fff; color: #1c1917; font-size: 1rem;
+            width: 100%; padding: 16px; margin-bottom: 16px;
+            border: 1px solid #e7e5e4;
+            background: #fafaf9; color: #1c1917; font-size: 1rem;
+            outline: none; transition: border 0.2s;
         }
+        input:focus { border-color: #1c1917; }
         button {
-            width: 100%; padding: 14px; background: #1c1917; color: #fafaf9;
-            border: none; border-radius: 2px; font-weight: 500; cursor: pointer;
-            transition: opacity 0.2s;
+            width: 100%; padding: 18px; background: #1c1917; color: #ffffff;
+            border: none; font-weight: 600; cursor: pointer;
+            letter-spacing: 0.05em; transition: background 0.2s;
         }
-        button:hover { opacity: 0.9; }
-        .footer-brand {
-            margin-top: 32px; font-size: 0.7rem; color: #d6d3d1; font-style: italic;
+        button:hover { background: #44403c; }
+        .brand-footer {
+            margin-top: 48px; font-size: 0.75rem; color: #d6d3d1;
+            letter-spacing: 0.05em;
         }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="brand-header">The Public Journal</div>
+        <div class="brand-tagline">The Public Journal</div>
         ${content}
-        <div class="footer-brand">Intentional, Not Chaotic.</div>
+        <div class="brand-footer">Intentional, Not Chaotic.</div>
     </div>
 </body>
 </html>
@@ -78,25 +85,24 @@ app.get('/', async (req: Request, res: Response) => {
     
     if (!session) {
         return res.send(UI_SHELL(`
-            <h1>A space for clarity.</h1>
-            <p>Your sanctuary for deliberate thought. Enter your email to begin.</p>
+            <h1>Seek Clarity.</h1>
+            <p>A minimalist space designed for those who value reflection over noise.</p>
             <form action="/login" method="POST">
-                <input type="email" name="email" placeholder="Email Address" required>
-                <button type="submit">Begin Reflection</button>
+                <input type="email" name="email" placeholder="email@address.com" required>
+                <button type="submit">Begin Session</button>
             </form>
         `));
     }
 
     res.send(UI_SHELL(`
         <h1>Welcome back.</h1>
-        <p>Your vault is secure and ready for your thoughts.</p>
-        <a href="/logout" style="color: #a8a29e; text-decoration: none; font-size: 0.8rem;">End Session</a>
+        <p>Your sanctuary is prepared.</p>
+        <a href="/logout" style="color: #a8a29e; text-decoration: none; font-size: 0.8rem; border-bottom: 1px solid #e7e5e4;">End Session</a>
     `));
 });
 
 app.post('/login', async (req, res) => {
     const { email } = req.body;
-    // Dynamically setting the redirect helps prevent Render loading loops
     const { error } = await supabase.auth.signInWithOtp({ 
         email, 
         options: { emailRedirectTo: 'https://' + req.get('host') } 
@@ -105,8 +111,8 @@ app.post('/login', async (req, res) => {
     if (error) return res.send(UI_SHELL(`<h1>Notice</h1><p>${error.message}</p>`));
 
     res.send(UI_SHELL(`
-        <h1>Check your inbox.</h1>
-        <p>An intentional link has been sent to <b>${email}</b>. Use it to enter the sanctuary.</p>
+        <h1>Check your Inbox.</h1>
+        <p>A magic link has been sent to <b>${email}</b>. Click it to enter the vault.</p>
     `));
 });
 
