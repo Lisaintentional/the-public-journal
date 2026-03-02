@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-// Using Number() ensures the PORT is a valid number for Render's environment
 const PORT = Number(process.env.PORT) || 3000;
 
 const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
@@ -13,61 +12,110 @@ const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABA
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- THE BRANDED UI: Intentional, Not Chaotic ---
+// --- THE BRANDED UI: High-Contrast Sanctuary ---
 const UI_SHELL = (content: string) => `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="color-scheme" content="light only">
+    <title>The Public Journal</title>
     <style>
-        /* Modern reset to ensure no "Default Blue" remains */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
-            background: #fafaf9; /* A warm, intentional off-white */
-            background-image: radial-gradient(circle at top right, #f5f5f4, #e7e5e4);
-            color: #44403c;
-            display: flex; justify-content: center; align-items: center;
-            min-height: 100vh; margin: 0;
+        /* Absolute reset to kill the "Still Black" bug */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000000 !important; /* Force background black */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
         }
+
         .card {
-            background: #ffffff;
-            padding: 48px; border-radius: 4px; /* Minimalist sharp edges for intention */
-            border: 1px solid #e7e5e4;
-            width: 90%; max-width: 400px; text-align: center;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            background-color: #ffffff !important; /* Force card white */
+            color: #000000 !important;
+            width: 90%;
+            max-width: 400px;
+            padding: 60px 40px;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.9);
+            text-align: center;
+            border-radius: 2px;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 999;
         }
-        .brand-header {
-            font-size: 0.65rem;
-            letter-spacing: 0.25em;
+
+        .brand-logo {
+            font-size: 10px;
+            letter-spacing: 4px;
             text-transform: uppercase;
             color: #a8a29e;
             margin-bottom: 40px;
+            font-family: sans-serif;
         }
-        .icon { font-size: 2rem; margin-bottom: 24px; display: block; filter: grayscale(1); }
-        h1 { font-size: 1.75rem; font-weight: 300; margin: 0 0 16px 0; color: #1c1917; }
-        p { color: #78716c; margin-bottom: 32px; line-height: 1.6; font-size: 0.95rem; }
+
+        h1 {
+            font-family: "Georgia", serif;
+            font-size: 28px;
+            font-weight: 400;
+            margin-bottom: 20px;
+            color: #000000;
+        }
+
+        p {
+            font-family: sans-serif;
+            color: #57534e;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
         input {
-            width: 100%; padding: 14px; margin-bottom: 12px;
-            border-radius: 2px; border: 1px solid #d6d3d1;
-            background: #fff; color: #1c1917; font-size: 1rem;
+            width: 100%;
+            padding: 18px;
+            border: 1px solid #e7e5e4;
+            background: #ffffff;
+            color: #000000;
+            font-size: 16px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            border-radius: 0;
         }
+
         button {
-            width: 100%; padding: 14px; background: #1c1917; color: #fafaf9;
-            border: none; border-radius: 2px; font-weight: 500; cursor: pointer;
-            transition: opacity 0.2s;
+            width: 100%;
+            padding: 18px;
+            background: #000000;
+            color: #ffffff;
+            border: none;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 0;
         }
-        button:hover { opacity: 0.9; }
-        .footer-brand {
-            margin-top: 32px; font-size: 0.7rem; color: #d6d3d1; font-style: italic;
+
+        .brand-footer {
+            margin-top: 50px;
+            font-size: 11px;
+            color: #d6d3d1;
+            letter-spacing: 1px;
+            font-style: italic;
         }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="brand-header">The Public Journal</div>
+        <div class="brand-logo">The Public Journal</div>
         ${content}
-        <div class="footer-brand">Intentional, Not Chaotic.</div>
+        <div class="brand-footer">Intentional, Not Chaotic.</div>
     </div>
 </body>
 </html>
@@ -78,35 +126,32 @@ app.get('/', async (req: Request, res: Response) => {
     
     if (!session) {
         return res.send(UI_SHELL(`
-            <h1>A space for clarity.</h1>
-            <p>Your sanctuary for deliberate thought. Enter your email to begin.</p>
+            <h1>Seek Clarity.</h1>
+            <p>Step away from the noise. Enter your email to begin your reflection.</p>
             <form action="/login" method="POST">
                 <input type="email" name="email" placeholder="Email Address" required>
-                <button type="submit">Begin Reflection</button>
+                <button type="submit">Unlock Vault</button>
             </form>
         `));
     }
 
     res.send(UI_SHELL(`
-        <h1>Welcome back.</h1>
-        <p>Your vault is secure and ready for your thoughts.</p>
-        <a href="/logout" style="color: #a8a29e; text-decoration: none; font-size: 0.8rem;">End Session</a>
+        <h1>Access Granted.</h1>
+        <p>Your sanctuary is ready for your thoughts.</p>
+        <a href="/logout" style="color: #a8a29e; text-decoration: none; font-size: 12px; border-bottom: 1px solid #e7e5e4;">End Session</a>
     `));
 });
 
 app.post('/login', async (req, res) => {
     const { email } = req.body;
-    // Dynamically setting the redirect helps prevent Render loading loops
-    const { error } = await supabase.auth.signInWithOtp({ 
+    await supabase.auth.signInWithOtp({ 
         email, 
         options: { emailRedirectTo: 'https://' + req.get('host') } 
     });
 
-    if (error) return res.send(UI_SHELL(`<h1>Notice</h1><p>${error.message}</p>`));
-
     res.send(UI_SHELL(`
-        <h1>Check your inbox.</h1>
-        <p>An intentional link has been sent to <b>${email}</b>. Use it to enter the sanctuary.</p>
+        <h1>Dispatched.</h1>
+        <p>A secure link has been sent to <b>${email}</b>. Click it to enter.</p>
     `));
 });
 
@@ -115,4 +160,4 @@ app.get('/logout', async (req, res) => {
     res.redirect('/');
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log("Intentional Sanctuary live on " + PORT));
+app.listen(PORT, '0.0.0.0', () => console.log("Vault Protocol active on " + PORT));
