@@ -7,7 +7,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Fixed: Using Number() here once at the top to avoid redeclaring later
+const PORT = Number(process.env.PORT) || 3000;
 
 // Initialize Clients
 const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
@@ -34,13 +35,6 @@ app.get('/', async (req: Request, res: Response) => {
                         <button style="width:100%; padding:12px; background:#3b82f6; border:none; color:white; border-radius:8px; font-weight:bold; cursor:pointer;">Send Magic Link</button>
                     </form>
                 </div>
-                <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-                <script>
-                    const supabase = supabase.createClient('${process.env.SUPABASE_URL}', '${process.env.SUPABASE_ANON_KEY}');
-                    supabase.auth.onAuthStateChange((event, session) => {
-                        if (event === 'SIGNED_IN') window.location.href = '/';
-                    });
-                </script>
             </body>
         `);
     }
@@ -112,7 +106,7 @@ app.get('/', async (req: Request, res: Response) => {
 app.post('/login', async (req, res) => {
     const { email } = req.body;
     await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: 'https://' + req.get('host') } });
-    res.send("<body style='background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding-top:100px;'><h2>Check your email! ✉️</h2></body>");
+    res.send("<body style='background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding-top:100px;'><h2>Check email!</h2></body>");
 });
 
 app.get('/logout', async (req, res) => {
@@ -162,9 +156,5 @@ app.post('/create-checkout', async (req, res) => {
 });
 
 // --- FINAL START ---
-// Force the PORT to be a number so TypeScript is happy
-const PORT = Number(process.env.PORT) || 3000;
-
-app.listen(PORT, '0.0.0.0', () => {
-    console.log("Vault is live on port " + PORT);
-});
+// Fixed: PORT is defined once at the top. Number() ensures TypeScript is happy.
+app.listen(PORT, '0.0.0.0', () => console.log("Vault is live on port " + PORT));
