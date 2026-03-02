@@ -162,4 +162,9 @@ app.post('/create-checkout', async (req, res) => {
 });
 
 // --- FINAL START ---
-app.listen(PORT, '0.0.0.0', () => console.log("Live on " + PORT));
+// Force the PORT to be a number so TypeScript is happy
+const PORT = Number(process.env.PORT) || 3000;
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log("Vault is live on port " + PORT);
+});
