@@ -7,8 +7,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
+// Using Number() ensures TypeScript doesn't throw the 'overload' error on Render
 const PORT = Number(process.env.PORT) || 3000;
 
+// Initialize API Clients
 const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2023-10-16' as any });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -16,7 +18,20 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- 1. THE SHARED STYLES (Cyber-Zen Aesthetic) ---
+// --- 1. PROMPT LOGIC ---
+const getDailyPrompt = () => {
+    const prompts = [
+        "What is a truth you are currently avoiding because it feels inconvenient?",
+        "Which part of your personality do you try hardest to hide from strangers?",
+        "What does 'safety' look like to you, and where in your life is it currently missing?",
+        "Identify a recurring frustration. What is it trying to protect you from?",
+        "If you could be 100% honest without consequences, what would you say right now?"
+    ];
+    const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+    return prompts[dayOfYear % prompts.length];
+};
+
+// --- 2. THE UI SHELL (Cyber-Zen Aesthetic) ---
 const UI_SHELL = (content: string, userEmail?: string) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -33,7 +48,7 @@ const UI_SHELL = (content: string, userEmail?: string) => `
             --text-dim: #64748b;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, system-ui, sans-serif;
             background: var(--bg);
             background-image: radial-gradient(circle at 50% -20%, #1e293b 0%, #05070a 100%);
             color: var(--text-main);
@@ -67,7 +82,6 @@ const UI_SHELL = (content: string, userEmail?: string) => `
             padding: 20px; border-radius: 18px; margin-bottom: 16px; 
         }
         .ai-badge { color: var(--accent); font-size: 0.7rem; font-weight: 800; margin-bottom: 8px; display: block; }
-        .persona-tag { font-size: 0.65rem; background: var(--accent); color: #000; padding: 2px 8px; border-radius: 4px; font-weight: 700; margin-left: 8px; }
     </style>
 </head>
 <body>
@@ -82,7 +96,7 @@ const UI_SHELL = (content: string, userEmail?: string) => `
 </html>
 `;
 
-// --- 2. DASHBOARD ---
+// --- 3. DASHBOARD ---
 app.get('/', async (req: Request, res: Response) => {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
@@ -91,8 +105,8 @@ app.get('/', async (req: Request, res: Response) => {
     if (!user) {
         return res.send(UI_SHELL(`
             <div style="text-align: center; padding-top: 40px;">
-                <div style="background: linear-gradient(135deg, #06b6d4, #3b82f6); height: 200px; border-radius: 20px; margin-bottom: 40px; display: flex; align-items: center; justify-content: center;">
-                   <h1 style="font-size: 2.5rem; margin:0;">The<br>Privacy<br>Vault</h1>
+                <div style="background: linear-gradient(135deg, #06b6d4, #3b82f6); height: 200px; border-radius: 24px; margin-bottom: 40px; display: flex; align-items: center; justify-content: center;">
+                   <h1 style="font-size: 2.5rem; margin:0; line-height: 1;">The<br>Privacy<br>Vault</h1>
                 </div>
                 <p style="color: var(--text-dim); margin-bottom: 30px;">Your healing journey is yours alone. Verify identity to unlock your space.</p>
                 <form action="/login" method="POST">
@@ -105,7 +119,7 @@ app.get('/', async (req: Request, res: Response) => {
 
     const { data: entries } = await supabase.from('journal_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     
-    const checkLock = (name: string) => (unlocked === 'lifetime' || unlocked === name) ? '' : 'disabled';
+    const isUnlocked = (name: string) => (unlocked === 'lifetime' || unlocked === name);
 
     const listItems = entries?.map((e: any) => `
         <div class="entry">
@@ -115,6 +129,11 @@ app.get('/', async (req: Request, res: Response) => {
         </div>`).join('') || '<p style="text-align:center; color:var(--text-dim);">Your vault is currently empty.</p>';
 
     res.send(UI_SHELL(`
+        <div class="vault-card" style="border-left: 4px solid var(--accent); background: rgba(34, 211, 238, 0.03);">
+            <span class="ai-badge">DAILY SHADOW PROMPT</span>
+            <p style="font-style: italic; font-size: 1.1rem; margin: 10px 0;">"${getDailyPrompt()}"</p>
+        </div>
+
         <div class="vault-card" style="border-color: #10b981; background: rgba(16, 185, 129, 0.05);">
             <h4 style="margin: 0 0 15px 0; color: #10b981;">Unlock Archetypes</h4>
             <div style="display:flex; gap: 8px;">
@@ -126,13 +145,13 @@ app.get('/', async (req: Request, res: Response) => {
         <div class="vault-card">
             <form action="/add-entry" method="POST">
                 <input type="hidden" name="unlockedStatus" value="${unlocked}">
-                <textarea name="text" placeholder="What is surfacing today?" required style="height: 120px;"></textarea>
+                <textarea name="text" placeholder="Begin your reflection..." required style="height: 120px;"></textarea>
                 <select name="persona">
                     <option value="stoic">🏛️ Stoic Philosopher (Free)</option>
-                    <option value="tough-love" ${checkLock('tough-love')}>🥊 Tough Love ${checkLock('tough-love') ? '🔒' : ''}</option>
-                    <option value="shadow" ${checkLock('shadow')}>🌑 Shadow Worker ${checkLock('shadow') ? '🔒' : ''}</option>
+                    <option value="tough-love" ${isUnlocked('tough-love') ? '' : 'disabled'}>🥊 Tough Love ${isUnlocked('tough-love') ? '' : '🔒'}</option>
+                    <option value="shadow" ${isUnlocked('shadow') ? '' : 'disabled'}>🌑 Shadow Worker ${isUnlocked('shadow') ? '' : '🔒'}</option>
                 </select>
-                <button type="submit" class="btn-primary">Secure Entry</button>
+                <button type="submit" class="btn-primary">Lock Entry</button>
             </form>
         </div>
 
@@ -152,11 +171,11 @@ app.get('/', async (req: Request, res: Response) => {
     `, user.email));
 });
 
-// --- 3. LOGIC ROUTES (Auth, Journal, Stripe) ---
+// --- 4. ROUTES ---
 app.post('/login', async (req, res) => {
     const { email } = req.body;
     await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: 'https://' + req.get('host') } });
-    res.send(UI_SHELL(`<div style="text-align:center; padding-top:100px;"><h2>Check your email! ✉️</h2><p style="color:var(--text-dim);">A secure link has been dispatched.</p></div>`));
+    res.send(UI_SHELL(`<div style="text-align:center; padding-top:100px;"><h2>Check your email! ✉️</h2><p style="color:var(--text-dim);">A secure access link has been dispatched.</p></div>`));
 });
 
 app.get('/logout', async (req, res) => {
@@ -169,19 +188,19 @@ app.post('/add-entry', async (req, res) => {
     const { text, persona, unlockedStatus } = req.body;
     if (!session) return res.redirect('/');
 
-    let aiSummary = "";
     let prompt = "Summarize this.";
     if (persona === 'stoic') prompt = "You are a Stoic Philosopher. Deep, calm summary.";
     if (persona === 'tough-love') prompt = "You are a Tough Love Coach. Be blunt and direct.";
     if (persona === 'shadow') prompt = "You are a Shadow Worker. Identify hidden subconscious patterns.";
 
+    let aiSummary = "";
     try {
         const aiRes = await openai.chat.completions.create({
             messages: [{ role: "system", content: prompt }, { role: "user", content: text }],
             model: "gpt-3.5-turbo",
         });
         aiSummary = aiRes.choices[0].message.content || "";
-    } catch (err) { console.log("AI failed"); }
+    } catch (err) { console.error("AI Error"); }
 
     await supabase.from('journal_entries').insert([{ text, summary: aiSummary, user_id: session.user.id }]);
     res.redirect(unlockedStatus ? '/?success=true&unlocked=' + unlockedStatus : '/');
@@ -201,4 +220,5 @@ app.post('/create-checkout', async (req, res) => {
     res.json({ url: session.url });
 });
 
+// Use 0.0.0.0 to ensure Render's network can access the port
 app.listen(PORT, '0.0.0.0', () => console.log("Vault live on port " + PORT));
