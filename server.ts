@@ -9,6 +9,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Initialize Clients
 const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2023-10-16' as any });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -33,6 +34,13 @@ app.get('/', async (req: Request, res: Response) => {
                         <button style="width:100%; padding:12px; background:#3b82f6; border:none; color:white; border-radius:8px; font-weight:bold; cursor:pointer;">Send Magic Link</button>
                     </form>
                 </div>
+                <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+                <script>
+                    const supabase = supabase.createClient('${process.env.SUPABASE_URL}', '${process.env.SUPABASE_ANON_KEY}');
+                    supabase.auth.onAuthStateChange((event, session) => {
+                        if (event === 'SIGNED_IN') window.location.href = '/';
+                    });
+                </script>
             </body>
         `);
     }
@@ -107,46 +115,10 @@ app.post('/login', async (req, res) => {
     res.send("<body style='background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding-top:100px;'><h2>Check your email! ✉️</h2></body>");
 });
 
-app.get// ... existing server code ...
-
-app.get('/', async (req: Request, res: Response) => {
-    // ... logic for entries ...
-
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>The Public Journal</title>
-            </head>
-        <body>
-            <div class="container">
-                </div>
-
-            <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-            <script>
-                const supabaseUrl = 'YOUR_SUPABASE_URL';
-                const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
-                const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
-                supabase.auth.onAuthStateChange((event, session) => {
-                    if (event === 'SIGNED_IN') {
-                        window.location.href = '/'; 
-                    }
-                });
-
-                async function buy(persona) {
-                    // ... your buying logic ...
-                }
-            </script>
-        </body>
-        </html>
-    `);
+app.get('/logout', async (req, res) => {
+    await supabase.auth.signOut();
+    res.redirect('/');
 });
-
-// ... other routes (login, add-entry, create-checkout) ...
-
-// THIS STAYS AS THE VERY LAST LINE
-app.listen(PORT, () => console.log("Live on " + PORT));
 
 // --- 3. JOURNAL ---
 app.post('/add-entry', async (req, res) => {
@@ -189,4 +161,5 @@ app.post('/create-checkout', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Stripe error" }); }
 });
 
-app.listen(PORT, () => console.log("Live on " + PORT));
+// --- FINAL START ---
+app.listen(PORT, '0.0.0.0', () => console.log("Live on " + PORT));
