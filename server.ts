@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
+// Using Number() ensures the PORT is a valid number for Render's environment
 const PORT = Number(process.env.PORT) || 3000;
 
 const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
@@ -12,103 +13,62 @@ const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABA
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- THE BRANDED UI: High-Contrast Sanctuary ---
+// --- THE BRANDED UI: Intentional, Not Chaotic ---
 const UI_SHELL = (content: string) => `
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Public Journal</title>
     <style>
-        /* Force reset to prevent any hidden default styles */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
+        /* Modern reset to ensure no "Default Blue" remains */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-            background-color: #000000 !important; /* Pure black background */
-            display: flex; 
-            justify-content: center; 
-            align-items: center;
-            min-height: 100vh;
-            width: 100vw;
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+            background: #fafaf9; /* A warm, intentional off-white */
+            background-image: radial-gradient(circle at top right, #f5f5f4, #e7e5e4);
+            color: #44403c;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0;
         }
-
         .card {
-            background-color: #ffffff !important; /* Pure white card */
-            padding: 60px 40px;
-            width: 90%;
-            max-width: 420px;
-            text-align: center;
-            border-radius: 2px;
-            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.9);
-            z-index: 10;
-            display: block !important; /* Ensure it's not hidden */
+            background: #ffffff;
+            padding: 48px; border-radius: 4px; /* Minimalist sharp edges for intention */
+            border: 1px solid #e7e5e4;
+            width: 90%; max-width: 400px; text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
         }
-
-        .brand-logo {
+        .brand-header {
             font-size: 0.65rem;
-            letter-spacing: 0.4em;
+            letter-spacing: 0.25em;
             text-transform: uppercase;
             color: #a8a29e;
-            margin-bottom: 50px;
-            font-weight: 600;
-        }
-
-        h1 {
-            font-family: "Georgia", serif;
-            font-size: 2rem;
-            font-weight: 400;
-            color: #000000;
-            margin-bottom: 20px;
-        }
-
-        p {
-            color: #57534e;
-            font-size: 1rem;
-            line-height: 1.6;
             margin-bottom: 40px;
         }
-
+        .icon { font-size: 2rem; margin-bottom: 24px; display: block; filter: grayscale(1); }
+        h1 { font-size: 1.75rem; font-weight: 300; margin: 0 0 16px 0; color: #1c1917; }
+        p { color: #78716c; margin-bottom: 32px; line-height: 1.6; font-size: 0.95rem; }
         input {
-            width: 100%;
-            padding: 18px;
-            border: 1px solid #e7e5e4;
-            background: #ffffff;
-            color: #000000;
-            font-size: 1rem;
-            margin-bottom: 15px;
-            outline: none;
+            width: 100%; padding: 14px; margin-bottom: 12px;
+            border-radius: 2px; border: 1px solid #d6d3d1;
+            background: #fff; color: #1c1917; font-size: 1rem;
         }
-
         button {
-            width: 100%;
-            padding: 18px;
-            background: #000000;
-            color: #ffffff;
-            border: none;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            cursor: pointer;
+            width: 100%; padding: 14px; background: #1c1917; color: #fafaf9;
+            border: none; border-radius: 2px; font-weight: 500; cursor: pointer;
+            transition: opacity 0.2s;
         }
-
-        .brand-footer {
-            margin-top: 50px;
-            font-size: 0.7rem;
-            color: #d6d3d1;
-            letter-spacing: 0.1em;
-            border-top: 1px solid #f5f5f4;
-            padding-top: 20px;
+        button:hover { opacity: 0.9; }
+        .footer-brand {
+            margin-top: 32px; font-size: 0.7rem; color: #d6d3d1; font-style: italic;
         }
     </style>
 </head>
 <body>
-    <main class="card">
-        <div class="brand-logo">The Public Journal</div>
+    <div class="card">
+        <div class="brand-header">The Public Journal</div>
         ${content}
-        <div class="brand-footer">Intentional, Not Chaotic.</div>
-    </main>
+        <div class="footer-brand">Intentional, Not Chaotic.</div>
+    </div>
 </body>
 </html>
 `;
@@ -118,32 +78,35 @@ app.get('/', async (req: Request, res: Response) => {
     
     if (!session) {
         return res.send(UI_SHELL(`
-            <h1>Begin Reflection.</h1>
-            <p>A minimalist sanctuary for clarity. Step away from the chaos.</p>
+            <h1>A space for clarity.</h1>
+            <p>Your sanctuary for deliberate thought. Enter your email to begin.</p>
             <form action="/login" method="POST">
-                <input type="email" name="email" placeholder="Enter email" required>
-                <button type="submit">Unlock Vault</button>
+                <input type="email" name="email" placeholder="Email Address" required>
+                <button type="submit">Begin Reflection</button>
             </form>
         `));
     }
 
     res.send(UI_SHELL(`
-        <h1>Access Granted.</h1>
-        <p>Your sanctuary is ready.</p>
+        <h1>Welcome back.</h1>
+        <p>Your vault is secure and ready for your thoughts.</p>
         <a href="/logout" style="color: #a8a29e; text-decoration: none; font-size: 0.8rem;">End Session</a>
     `));
 });
 
 app.post('/login', async (req, res) => {
     const { email } = req.body;
-    await supabase.auth.signInWithOtp({ 
+    // Dynamically setting the redirect helps prevent Render loading loops
+    const { error } = await supabase.auth.signInWithOtp({ 
         email, 
         options: { emailRedirectTo: 'https://' + req.get('host') } 
     });
 
+    if (error) return res.send(UI_SHELL(`<h1>Notice</h1><p>${error.message}</p>`));
+
     res.send(UI_SHELL(`
-        <h1>Dispatched.</h1>
-        <p>A magic link has been sent to <b>${email}</b>.</p>
+        <h1>Check your inbox.</h1>
+        <p>An intentional link has been sent to <b>${email}</b>. Use it to enter the sanctuary.</p>
     `));
 });
 
@@ -152,4 +115,4 @@ app.get('/logout', async (req, res) => {
     res.redirect('/');
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log("Vault live on " + PORT));
+app.listen(PORT, '0.0.0.0', () => console.log("Intentional Sanctuary live on " + PORT));
